@@ -4,3 +4,4 @@ pypdf
 pinecone
 pydantic
 python-dotenv
+numpy
