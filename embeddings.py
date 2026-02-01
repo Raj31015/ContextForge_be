@@ -1,8 +1,5 @@
 # embeddings.py
 import json
-import os
-import chromadb
-from pdfreader import chunk_multiple_pdfs
 from dotenv import load_dotenv
 from utils import safe_int
 from pinecone_client import get_index,pc

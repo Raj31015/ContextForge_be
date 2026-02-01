@@ -2,7 +2,7 @@ import re
 import unicodedata
 from collections import Counter
 from pypdf import PdfReader
-from utils import embed_one,cosine_similarity,update_centroid,embed_batch
+from utils import cosine_similarity,update_centroid,embed_batch
 HEADER_FOOTER_LINES = 3
 REPEAT_THRESHOLD = 0.6
 
