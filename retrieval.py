@@ -1,10 +1,11 @@
+from pinecone_client import get_index, pc
 
-from pinecone_client import get_index,pc
-index=get_index()
+index = get_index()
+
 
 def hybrid_search(
     query: str,
-    doc_ids:list[str] | None=None,
+    doc_ids: list[str] | None = None,
     dense_k: int = 50,
     rerank_k: int = 50,
     final_k: int = 5
@@ -21,10 +22,12 @@ def hybrid_search(
         inputs=query,
         parameters={"input_type": "query", "truncate": "END"}
     )[0]
+
     filter_clause = {"doc_id": {"$in": doc_ids}} if doc_ids else None
+
     # ---- Hybrid search ----
     results = index.query(
-        namespace="ns1", #no fixed namepspace
+        namespace="ns1",  # no fixed namespace
         top_k=dense_k,
         vector=dense_q["values"],
         sparse_vector={
@@ -40,24 +43,78 @@ def hybrid_search(
         include_metadata=True
     )
 
-    # ---- Apply section bonus ----
     matches = results["matches"]
 
     formatted = [
-    (
-        m["score"],
-        m["metadata"]["chunk_text"],
-        m["metadata"]
-    )
-    for m in matches[:final_k]
-]
+        (
+            m["score"],
+            m["metadata"]["chunk_text"],
+            m["metadata"]
+        )
+        for m in matches[:final_k]
+    ]
 
     return formatted
 
-  
+
+# =========================
+# 🔴 ADDED: RETRIEVAL SIGNAL ANALYSIS
+# =========================
+
+def score_concentration(results, min_ratio=1.5):
+    """
+    Checks whether the top result dominates the rest.
+    """
+    if len(results) < 3:
+        return False
+
+    top_score = results[0][0]
+    rest_scores = [s for s, _, _ in results[1:]]
+    avg_rest = sum(rest_scores) / len(rest_scores)
+
+    return top_score / (avg_rest + 1e-6) >= min_ratio
 
 
+def chunk_agreement(results, min_overlap=0.1):
+    """
+    Measures agreement between top retrieved chunks.
+    """
+    texts = [text.lower() for _, text, _ in results[:5]]
+    if len(texts) < 2:
+        return False
 
+    common_terms = set(texts[0].split())
+    for t in texts[1:]:
+        common_terms &= set(t.split())
+
+    overlap_ratio = len(common_terms) / max(len(texts[0].split()), 1)
+    return overlap_ratio >= min_overlap
+
+
+def rerank_gap(results, min_gap=0.05):
+    """
+    Checks confidence gap between top reranked results.
+    """
+    if len(results) < 2:
+        return False
+
+    return (results[0][0] - results[1][0]) >= min_gap
+
+
+def is_answerable(results):
+    """
+    Domain-agnostic, model-free answerability gate.
+    """
+    return (
+        score_concentration(results)
+        and chunk_agreement(results)
+        and rerank_gap(results)
+    )
+
+
+# =========================
+# EXISTING CODE (UNCHANGED)
+# =========================
 
 def assemble_chunks(
     results,
@@ -93,6 +150,7 @@ def assemble_chunks(
             break
 
     return assembled_text.strip(), used_sources
+
 
 def needs_global_context(query: str) -> bool:
     q = query.lower()

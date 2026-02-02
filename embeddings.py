@@ -72,15 +72,7 @@ def index_chunks(chunks, batch_size=96):
                     "chunk_text": chunk["text"]
                 }
             })
-        for r in records:
-         for k, v in r["metadata"].items():
-             if v is None:
-                print("🔥 NULL METADATA DETECTED 🔥")
-                print("FIELD:", k)
-                print(json.dumps(r["metadata"], indent=2))
-                raise RuntimeError("NULL METADATA FOUND")
-        # ---- 5. Upsert ----
-        print("G: about to upsert to Pinecone", flush=True)
+        
 
         index.upsert(
             vectors=records,
